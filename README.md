@@ -31,19 +31,19 @@ Este proyecto utiliza tecnologías web para asegurar la máxima compatibilidad:
 - **Importante:** Al usar ```LocalStorage```, los datos persistirán en ese navegador específico. Evita borrar la caché del navegador para no perder el historial de ventas.
 
 ### 2. Cargar Productos
-1. Dirigirse a la sección *"Cargar Producto"*.
+1. Dirigirse a la sección **"Cargar Producto"**.
 2. Ingresar el nombre, stock inicial y precio unitario.
-3. Hacer clic en *"Agregar a Stock"*. El producto aparecerá instantáneamente en la tabla de Inventario.
+3. Hacer clic en **"Agregar a Stock"**. El producto aparecerá instantáneamente en la tabla de Inventario.
 
 ### 3. Registrar una Venta
-1. Ir al módulo *"Registrar Venta"* .
+1. Ir al módulo **"Registrar Venta"** .
 2. Seleccionar el producto del desplegable.
 3. Ingresar la cantidad. (El sistema mostrará automáticamente si hay stock disponible).
 4. Seleccionar el método de pago y, si aplica, una promoción.
-5. Pulsar "Procesar Venta".
+5. Pulsar **"Procesar Venta"**.
 
 ### 4. Generar Reportes
-1. En la parte superior derecha, hacer clic en el botón verde *"Exportar PDF"* .
+1. En la parte superior derecha, hacer clic en el botón verde **"Exportar PDF"** .
 2. El sistema generará automáticamente un documento con:
    - Resumen financiero total.
    - Desglose de ventas por método de pago.
@@ -52,5 +52,6 @@ Este proyecto utiliza tecnologías web para asegurar la máxima compatibilidad:
 
 ## ⚠️ Notas para Administradores
 
-*Cierre de Caja:* Si se desea comenzar un nuevo día o evento, utilizar el botón "Reiniciar Caja" en el panel de Historial de Ventas. ¡Cuidado! Esta acción borra el historial de ventas y reinicia los contadores a $0.00.
-*Correcciones:* Si se cometió un error en una venta, se puede usar el botón *"Corregir"* (icono de lápiz) en la fila de la venta específica para modificar la cantidad o el precio sin necesidad de borrar y recrear la operación.
+**Cierre de Caja:** Si se desea comenzar un nuevo día o evento, utilizar el botón **"Reiniciar Caja"** en el panel de Historial de Ventas. *¡Cuidado!* Esta acción borra el historial de ventas y reinicia los contadores a $0.00.
+
+**Correcciones:** Si se cometió un error en una venta, se puede usar el botón **"Corregir"** (icono de lápiz) en la fila de la venta específica para modificar la cantidad o el precio sin necesidad de borrar y recrear la operación.
