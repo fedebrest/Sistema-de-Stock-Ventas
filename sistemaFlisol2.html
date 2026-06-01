@@ -1,0 +1,1916 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestión de Stock y Ventas - FLISOL CABA</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome para iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Generador de PDF (jsPDF y AutoTable) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        flisol: {
+                            dark: '#0f172a',      // Fondo oscuro principal
+                            card: '#1e293b',      // Fondo de tarjetas y contenedores
+                            green: '#22c55e',     // Verde vibrante de acento (FLISOL)
+                            greenHover: '#16a34a',
+                            blue: '#3b82f6',      // Azul de acento secundario
+                            text: '#f8fafc',      // Texto claro
+                            muted: '#94a3b8'      // Texto atenuado
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Desplazamiento suave y personalización de barra de desplazamiento */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #22c55e;
+        }
+    </style>
+</head>
+<body class="bg-flisol-dark text-flisol-text font-sans min-h-screen pb-12">
+
+    <!-- CABECERA / LANDING HEADER -->
+    <header class="bg-flisol-card border-b border-slate-800 shadow-xl py-6 px-4 mb-8">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
+            <!-- Logo y Título -->
+            <div class="flex items-center gap-6 flex-col sm:flex-row text-center sm:text-left">
+                <img src="https://caba.flisol.org.ar/flisol-caba-2026.gif" 
+                     alt="FLISOL CABA 2026 Logo" 
+                     class="h-24 object-contain filter drop-shadow-[0_0_8px_rgba(34,197,94,0.4)] transition-transform duration-300 hover:scale-105"
+                     onerror="this.onerror=null; this.src='https://via.placeholder.com/150x150/1e293b/22c55e?text=FLISOL+CABA';">
+                <div>
+                    <h1 class="text-3xl font-extrabold tracking-tight text-white flex items-center gap-2 justify-center sm:justify-start">
+                        Sistema de <span class="text-flisol-green">Stock & Ventas</span>
+                    </h1>
+                    <p class="text-flisol-muted mt-1 text-sm sm:text-base">Gestión Inteligente de Inventario y Caja</p>
+                </div>
+            </div>
+            
+            <!-- Acciones Globales y Resumen Rápido -->
+            <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full md:w-auto">
+                <button onclick="generarReportePDF()" 
+                        class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-5 rounded-xl shadow-lg transition-all duration-200 flex items-center justify-center gap-2 group">
+                    <i class="fa-solid fa-file-pdf text-lg group-hover:scale-110 transition-transform"></i>
+                    Exportar PDF
+                </button>
+
+                <div class="flex gap-4 overflow-x-auto pb-2 sm:pb-0">
+                    <div class="bg-slate-900/50 border border-slate-700/60 rounded-xl p-4 min-w-[120px] flex-1">
+                        <p class="text-[10px] text-flisol-muted font-semibold uppercase tracking-wider">Total Recaudado</p>
+                        <p class="text-xl font-bold text-flisol-green mt-0.5" id="box-total-recaudado">$0.00</p>
+                    </div>
+                    <div class="bg-slate-900/50 border border-slate-700/60 rounded-xl p-4 min-w-[120px] flex-1">
+                        <p class="text-[10px] text-flisol-muted font-semibold uppercase tracking-wider">Efectivo</p>
+                        <p class="text-lg font-bold text-white mt-0.5" id="box-total-efectivo">$0.00</p>
+                    </div>
+                    <div class="bg-slate-900/50 border border-slate-700/60 rounded-xl p-4 min-w-[120px] flex-1">
+                        <p class="text-[10px] text-flisol-muted font-semibold uppercase tracking-wider">Transferencias</p>
+                        <p class="text-lg font-bold text-flisol-blue mt-0.5" id="box-total-transferencia">$0.00</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        <!-- SECCIÓN IZQUIERDA: FORMULARIOS (4 columnas) -->
+        <div class="lg:col-span-4 flex flex-col gap-6">
+            
+            <!-- ALERTA MENSAJES DE ERROR/ÉXITO PERSONALIZADO -->
+            <div id="toast-container" class="hidden transform transition-all duration-300">
+                <div id="toast-card" class="rounded-xl p-4 flex items-start gap-3 shadow-lg border">
+                    <div id="toast-icon" class="text-xl mt-0.5"></div>
+                    <div class="flex-1">
+                        <h4 id="toast-title" class="font-bold text-sm"></h4>
+                        <p id="toast-message" class="text-xs text-slate-300 mt-1"></p>
+                    </div>
+                    <button onclick="closeToast()" class="text-slate-400 hover:text-white">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- FORMULARIO 1: NUEVO PRODUCTO -->
+            <section class="bg-flisol-card border border-slate-800 rounded-2xl p-6 shadow-lg">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="bg-flisol-green/10 text-flisol-green p-2 rounded-lg">
+                        <i class="fa-solid fa-box-archive"></i>
+                    </div>
+                    <h2 class="text-xl font-bold text-white">Cargar Producto</h2>
+                </div>
+                
+                <form id="form-nuevo-producto" onsubmit="agregarProducto(event)" class="space-y-4">
+                    <div>
+                        <label for="prod-nombre" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Nombre del Producto</label>
+                        <input type="text" id="prod-nombre" required placeholder="Ej: Camiseta FLISOL 2026"
+                               class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-flisol-green focus:border-transparent transition-all">
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="prod-cantidad" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Stock Inicial</label>
+                            <input type="number" id="prod-cantidad" required min="0" placeholder="0"
+                                   class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-flisol-green focus:border-transparent transition-all">
+                        </div>
+                        <div>
+                            <label for="prod-precio" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Precio Unitario ($)</label>
+                            <input type="number" id="prod-precio" required min="0" step="0.01" placeholder="0.00"
+                                   class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-flisol-green focus:border-transparent transition-all">
+                        </div>
+                    </div>
+
+                    <button type="submit" 
+                            class="w-full bg-flisol-green hover:bg-flisol-greenHover text-slate-950 font-bold py-3 px-4 rounded-lg shadow-lg transition-colors duration-200 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-plus-circle"></i> Agregar a Stock
+                    </button>
+                </form>
+            </section>
+
+            <!-- FORMULARIO 2: REGISTRAR VENTA -->
+            <section class="bg-flisol-card border border-slate-800 rounded-2xl p-6 shadow-lg">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="bg-flisol-blue/10 text-flisol-blue p-2 rounded-lg">
+                        <i class="fa-solid fa-cart-shopping"></i>
+                    </div>
+                    <h2 class="text-xl font-bold text-white">Registrar Venta</h2>
+                </div>
+                
+                <form id="form-nueva-venta" onsubmit="registrarVenta(event)" class="space-y-4">
+                    <div>
+                        <label for="venta-producto" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Seleccionar Producto</label>
+                        <select id="venta-producto" required onchange="alCambiarProductoVenta()"
+                                class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-flisol-blue focus:border-transparent transition-all">
+                            <option value="" disabled selected>-- Elige un producto --</option>
+                        </select>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="venta-cantidad" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Cantidad</label>
+                            <input type="number" id="venta-cantidad" required min="1" placeholder="Cantidad" oninput="calcularPrevisualizacionVenta()"
+                                   class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-flisol-blue focus:border-transparent transition-all">
+                            <span id="venta-stock-disponible" class="text-[11px] text-flisol-muted mt-1 block">Stock Disp: -</span>
+                        </div>
+                        <div>
+                            <label for="venta-pago" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Tipo de Pago</label>
+                            <select id="venta-pago" required
+                                    class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-flisol-blue focus:border-transparent transition-all">
+                                <option value="Efectivo" selected>💵 Efectivo</option>
+                                <option value="Transferencia">📱 MercadoPago / Transf.</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- DESCUENTO APLICABLE -->
+                    <div>
+                        <label for="venta-promo" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Aplicar Descuento / Promo</label>
+                        <select id="venta-promo" onchange="calcularPrevisualizacionVenta()"
+                                class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-flisol-blue focus:border-transparent transition-all">
+                            <option value="">-- Sin descuento --</option>
+                        </select>
+                    </div>
+
+                    <!-- PREVISUALIZACION DE VALOR -->
+                    <div id="previsualizacion-venta" class="bg-slate-900/70 border border-slate-800 rounded-lg p-3 text-xs space-y-1 hidden">
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">Subtotal:</span>
+                            <span id="prev-subtotal" class="font-mono">$0.00</span>
+                        </div>
+                        <div class="flex justify-between text-rose-400 font-semibold" id="row-prev-descuento">
+                            <span>Descuento:</span>
+                            <span id="prev-descuento" class="font-mono">-$0.00</span>
+                        </div>
+                        <div class="flex justify-between text-sm font-bold border-t border-slate-800 pt-1.5 text-flisol-green">
+                            <span>Total Estimado:</span>
+                            <span id="prev-total" class="font-mono">$0.00</span>
+                        </div>
+                    </div>
+
+                    <button type="submit" 
+                            class="w-full bg-flisol-blue hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg shadow-lg transition-colors duration-200 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-receipt"></i> Procesar Venta
+                    </button>
+                </form>
+            </section>
+
+            <!-- FORMULARIO 3: CARGAR DESCUENTO / PROMOCIÓN -->
+            <section class="bg-flisol-card border border-slate-800 rounded-2xl p-6 shadow-lg">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="bg-amber-500/10 text-amber-500 p-2 rounded-lg">
+                        <i class="fa-solid fa-tags"></i>
+                    </div>
+                    <h2 class="text-xl font-bold text-white">Promociones</h2>
+                </div>
+                
+                <form id="form-nueva-promo" onsubmit="agregarPromocion(event)" class="space-y-4 mb-6">
+                    <div>
+                        <label for="promo-nombre" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Nombre / Identificador</label>
+                        <input type="text" id="promo-nombre" required placeholder="Ej: FLISOL 15% OFF"
+                               class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="promo-tipo" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Tipo Descuento</label>
+                            <select id="promo-tipo" required
+                                    class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
+                                <option value="porcentaje">Porcentaje (%)</option>
+                                <option value="monto">Monto Fijo ($)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="promo-valor" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Valor</label>
+                            <input type="number" id="promo-valor" required min="0.01" step="0.01" placeholder="Ej: 15"
+                                   class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
+                        </div>
+                    </div>
+
+                    <button type="submit" 
+                            class="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-3 px-4 rounded-lg shadow-lg transition-colors duration-200 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-plus-circle"></i> Guardar Promoción
+                    </button>
+                </form>
+
+                <!-- LISTA DE PROMOCIONES ACTIVAS -->
+                <div class="border-t border-slate-800 pt-4">
+                    <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Promociones Activas</h3>
+                    <div id="lista-promociones" class="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                        <!-- Se renderizan dinámicamente -->
+                    </div>
+                </div>
+            </section>
+
+        </div>
+
+        <!-- SECCIÓN DERECHA: TABLAS E HISTORIAL (8 columnas) -->
+        <div class="lg:col-span-8 flex flex-col gap-8">
+            
+            <!-- LISTADO DE PRODUCTOS / STOCK -->
+            <section class="bg-flisol-card border border-slate-800 rounded-2xl shadow-lg overflow-hidden">
+                <div class="p-6 border-b border-slate-800 flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-flisol-green/10 text-flisol-green p-2 rounded-lg">
+                            <i class="fa-solid fa-list-check"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-bold text-white">Inventario en Tiempo Real</h2>
+                            <p class="text-xs text-flisol-muted mt-0.5">Control de existencias y precios</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Buscador interno y Filtro de Stock -->
+                    <div class="flex flex-wrap items-center gap-3 w-full xl:w-auto">
+                        <!-- Buscador -->
+                        <div class="relative w-full sm:w-48">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-500">
+                                <i class="fa-solid fa-magnifying-glass text-xs"></i>
+                            </span>
+                            <input type="text" id="buscar-producto" oninput="render()" placeholder="Buscar producto..."
+                                   class="w-full bg-slate-900/60 border border-slate-700 rounded-lg pl-9 pr-4 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-flisol-green focus:border-transparent transition-all">
+                        </div>
+
+                        <!-- Filtro de Estado de Stock -->
+                        <div class="flex items-center gap-2">
+                            <label for="filtrar-stock" class="text-xs text-slate-400 font-semibold whitespace-nowrap">Estado:</label>
+                            <select id="filtrar-stock" onchange="render()" 
+                                    class="bg-slate-900 border border-slate-700 text-white text-xs rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-flisol-green focus:outline-none">
+                                <option value="Todos">📂 Todos</option>
+                                <option value="ConStock">✅ Con Stock</option>
+                                <option value="SinStock">❌ Sin Stock</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-900/40 text-slate-400 text-xs font-semibold uppercase tracking-wider border-b border-slate-800">
+                                <th class="py-4 px-6">Producto</th>
+                                <th class="py-4 px-6 text-right">Precio Unitario</th>
+                                <th class="py-4 px-6 text-center">Stock Actual</th>
+                                <th class="py-4 px-6 text-center">Estado Stock</th>
+                                <th class="py-4 px-6 text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabla-productos" class="divide-y divide-slate-800 text-sm">
+                            <!-- Los productos se inyectan mediante JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="sin-productos-msg" class="hidden p-8 text-center text-flisol-muted">
+                    <i class="fa-solid fa-box-open text-4xl mb-3 text-slate-600"></i>
+                    <p class="text-sm font-medium">No hay productos en inventario. ¡Carga el primero!</p>
+                </div>
+            </section>
+
+            <!-- HISTORIAL DE VENTAS -->
+            <section class="bg-flisol-card border border-slate-800 rounded-2xl shadow-lg overflow-hidden">
+                <div class="p-6 border-b border-slate-800 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-flisol-blue/10 text-flisol-blue p-2 rounded-lg">
+                            <i class="fa-solid fa-clock-rotate-left"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-bold text-white">Registro de Ventas Recientes</h2>
+                            <p class="text-xs text-flisol-muted mt-0.5">Auditoría y desglose de operaciones diarias</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Filtro, Buscador y Acciones -->
+                    <div class="flex flex-wrap items-center gap-3">
+                        <!-- Buscador de Ventas -->
+                        <div class="relative w-full sm:w-48">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-500">
+                                <i class="fa-solid fa-magnifying-glass text-xs"></i>
+                            </span>
+                            <input type="text" id="buscar-venta" oninput="render()" placeholder="Buscar venta..."
+                                   class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-4 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-flisol-blue focus:border-transparent transition-all">
+                        </div>
+
+                        <!-- Filtro de Pago -->
+                        <div class="flex items-center gap-2">
+                            <label for="filtrar-pago" class="text-xs text-slate-400 font-semibold whitespace-nowrap">Filtro:</label>
+                            <select id="filtrar-pago" onchange="render()" 
+                                    class="bg-slate-900 border border-slate-700 text-white text-xs rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-flisol-blue focus:outline-none">
+                                <option value="Todos">📂 Todos</option>
+                                <option value="Efectivo">💵 Efectivo</option>
+                                <option value="Transferencia">📱 Transferencia</option>
+                            </select>
+                        </div>
+                        
+                        <button onclick="abrirModalReiniciarCaja()" class="text-xs bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/20 px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 transition-colors">
+                            <i class="fa-regular fa-trash-can"></i> Reiniciar Caja
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto max-h-[350px] overflow-y-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-900/40 text-slate-400 text-xs font-semibold uppercase tracking-wider border-b border-slate-800 sticky top-0 z-10">
+                                <th class="py-3 px-6 bg-slate-900/90">Fecha/Hora</th>
+                                <th class="py-3 px-6 bg-slate-900/90">Producto</th>
+                                <th class="py-3 px-6 bg-slate-900/90 text-center">Cantidad</th>
+                                <th class="py-3 px-6 bg-slate-900/90 text-center">Método Pago</th>
+                                <th class="py-3 px-6 bg-slate-900/90 text-right">Total</th>
+                                <th class="py-3 px-6 bg-slate-900/90 text-center">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabla-ventas" class="divide-y divide-slate-800 text-sm">
+                            <!-- Las ventas se inyectan mediante JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="sin-ventas-msg" class="hidden p-8 text-center text-flisol-muted">
+                    <i class="fa-solid fa-receipt text-4xl mb-3 text-slate-600"></i>
+                    <p class="text-sm font-medium">No se registran ventas para el filtro seleccionado.</p>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- MODAL DE EDICIÓN DE PRODUCTO -->
+    <div id="modal-editar" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-flisol-card border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl transform transition-transform duration-300 scale-100">
+            <!-- Header Modal -->
+            <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+                <div class="flex items-center gap-3">
+                    <div class="bg-amber-500/10 text-amber-500 p-2 rounded-lg">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-white">Modificar Producto</h3>
+                </div>
+                <button onclick="cerrarModal()" class="text-slate-400 hover:text-white text-xl">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Body Modal Form -->
+            <form id="form-editar-producto" onsubmit="guardarModificacion(event)" class="space-y-4 mt-4">
+                <input type="hidden" id="edit-id">
+                
+                <div>
+                    <label for="edit-nombre" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Nombre del Producto</label>
+                    <input type="text" id="edit-nombre" required
+                           class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-flisol-green focus:border-transparent transition-all">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="edit-cantidad" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Stock Disponible</label>
+                        <input type="number" id="edit-cantidad" required min="0"
+                               class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-flisol-green focus:border-transparent transition-all">
+                    </div>
+                    <div>
+                        <label for="edit-precio" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Precio Unitario ($)</label>
+                        <input type="number" id="edit-precio" required min="0" step="0.01"
+                               class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-flisol-green focus:border-transparent transition-all">
+                    </div>
+                </div>
+
+                <!-- Footer Modal -->
+                <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+                    <button type="button" onclick="cerrarModal()"
+                            class="px-4 py-2 rounded-lg text-slate-300 hover:bg-slate-800 font-semibold transition-colors">
+                        Cancelar
+                    </button>
+                    <button type="submit"
+                            class="bg-flisol-green hover:bg-flisol-greenHover text-slate-950 font-bold px-5 py-2.5 rounded-lg shadow-md transition-colors">
+                        Guardar Cambios
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <!-- MODAL DE EDICIÓN DE PROMOCIÓN -->
+    <div id="modal-editar-promo" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-flisol-card border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <!-- Header Modal -->
+            <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+                <div class="flex items-center gap-3">
+                    <div class="bg-amber-500/10 text-amber-500 p-2 rounded-lg">
+                        <i class="fa-solid fa-tag"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-white">Modificar Promoción</h3>
+                </div>
+                <button onclick="cerrarModalPromo()" class="text-slate-400 hover:text-white text-xl">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Body Modal Form -->
+            <form id="form-editar-promo" onsubmit="guardarModificacionPromo(event)" class="space-y-4 mt-4">
+                <input type="hidden" id="edit-promo-id">
+                
+                <div>
+                    <label for="edit-promo-nombre" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Nombre de la Promoción</label>
+                    <input type="text" id="edit-promo-nombre" required
+                           class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="edit-promo-tipo" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Tipo Descuento</label>
+                        <select id="edit-promo-tipo" required
+                                class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
+                            <option value="porcentaje">Porcentaje (%)</option>
+                            <option value="monto">Monto Fijo ($)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="edit-promo-valor" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Valor</label>
+                        <input type="number" id="edit-promo-valor" required min="0.01" step="0.01"
+                               class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
+                    </div>
+                </div>
+
+                <!-- Footer Modal -->
+                <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+                    <button type="button" onclick="cerrarModalPromo()"
+                            class="px-4 py-2 rounded-lg text-slate-300 hover:bg-slate-800 font-semibold transition-colors">
+                        Cancelar
+                    </button>
+                    <button type="submit"
+                            class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-5 py-2.5 rounded-lg shadow-md transition-colors">
+                        Guardar Cambios
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <!-- MODAL DE EDICIÓN DE VENTA (CON PRECIO UNITARIO Y DESCUENTOS) -->
+    <div id="modal-editar-venta" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-flisol-card border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <!-- Header Modal -->
+            <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+                <div class="flex items-center gap-3">
+                    <div class="bg-blue-500/10 text-flisol-blue p-2 rounded-lg">
+                        <i class="fa-solid fa-file-signature"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-white">Corregir Venta</h3>
+                </div>
+                <button onclick="cerrarModalVenta()" class="text-slate-400 hover:text-white text-xl">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Body Modal Form -->
+            <form id="form-editar-venta" onsubmit="guardarModificacionVenta(event)" class="space-y-4 mt-4">
+                <input type="hidden" id="edit-venta-id">
+                
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Producto Vendido</label>
+                    <div class="w-full bg-slate-900 border border-slate-700/60 rounded-lg px-4 py-2.5 text-white/60 select-none cursor-not-allowed font-medium" id="edit-venta-producto-nombre">
+                        -- Producto --
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="edit-venta-cantidad" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Cantidad Nueva</label>
+                        <input type="number" id="edit-venta-cantidad" required min="1"
+                               class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-flisol-blue focus:border-transparent transition-all">
+                        <span id="edit-venta-stock-max" class="text-[10px] text-flisol-muted mt-1 block"></span>
+                    </div>
+                    <div>
+                        <label for="edit-venta-pago" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Tipo de Pago</label>
+                        <select id="edit-venta-pago" required
+                                class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-flisol-blue focus:border-transparent transition-all">
+                            <option value="Efectivo">💵 Efectivo</option>
+                            <option value="Transferencia">📱 MercadoPago / Transf.</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="edit-venta-precio" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Precio Unitario Histórico ($)</label>
+                        <input type="number" id="edit-venta-precio" required min="0" step="0.01"
+                               class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-flisol-blue focus:border-transparent transition-all">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Descuento Asociado ($)</label>
+                        <div class="w-full bg-slate-900 border border-slate-700/60 rounded-lg px-4 py-2.5 text-rose-400 font-mono select-none" id="edit-venta-descuento-txt">
+                            -$0.00
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer Modal -->
+                <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+                    <button type="button" onclick="cerrarModalVenta()"
+                            class="px-4 py-2 rounded-lg text-slate-300 hover:bg-slate-800 font-semibold transition-colors">
+                        Cancelar
+                    </button>
+                    <button type="submit"
+                            class="bg-flisol-blue hover:bg-blue-600 text-white font-bold px-5 py-2.5 rounded-lg shadow-md transition-colors">
+                        Guardar Cambios
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <!-- MODAL DE CONFIRMACIÓN DE REINICIO DE CAJA -->
+    <div id="modal-confirmar-reinicio" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-flisol-card border border-slate-800 rounded-2xl max-w-sm w-full p-6 shadow-2xl">
+            <div class="text-center">
+                <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-rose-500/10 text-rose-500 mb-4 text-xl">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+                <h3 class="text-lg font-bold text-white mb-2">¿Reiniciar la Caja?</h3>
+                <p class="text-xs text-flisol-muted mb-6">
+                    Esta acción vaciará por completo el historial de ventas recientes y reajustará la recaudación a $0.00. 
+                    <strong class="text-rose-400 block mt-2">Esta acción no se puede deshacer.</strong>
+                </p>
+                <div class="flex items-center justify-center gap-3">
+                    <button type="button" onclick="cerrarModalReiniciarCaja()"
+                            class="px-4 py-2 rounded-lg text-slate-300 hover:bg-slate-800 font-semibold text-xs transition-colors">
+                        Cancelar
+                    </button>
+                    <button type="button" onclick="confirmarReinicioCaja()"
+                            class="bg-rose-600 hover:bg-rose-500 text-white font-bold px-4 py-2 rounded-lg text-xs shadow-md transition-colors">
+                        Sí, Reiniciar Caja
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- MODAL DE CONFIRMACIÓN DE ELIMINACIÓN DE PRODUCTO -->
+    <div id="modal-eliminar" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-flisol-card border border-slate-800 rounded-2xl max-w-sm w-full p-6 shadow-2xl">
+            <div class="text-center">
+                <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-rose-500/10 text-rose-500 mb-4 text-xl">
+                    <i class="fa-solid fa-trash-can"></i>
+                </div>
+                <h3 class="text-lg font-bold text-white mb-2">¿Eliminar Producto?</h3>
+                <p class="text-xs text-flisol-muted mb-6">
+                    Esta acción quitará el producto <strong id="delete-item-name" class="text-white"></strong> permanentemente de tu stock. No alterará las ventas pasadas ya registradas.
+                </p>
+                
+                <input type="hidden" id="delete-id">
+                
+                <div class="flex items-center justify-center gap-3">
+                    <button type="button" onclick="cerrarModalEliminar()"
+                            class="px-4 py-2 rounded-lg text-slate-300 hover:bg-slate-800 font-semibold text-xs transition-colors">
+                        Cancelar
+                    </button>
+                    <button type="button" onclick="ejecutarEliminacion()"
+                            class="bg-rose-600 hover:bg-rose-500 text-white font-bold px-4 py-2 rounded-lg text-xs shadow-md transition-colors">
+                        Sí, eliminar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- MODAL DE CONFIRMACIÓN DE ELIMINACIÓN DE PROMOCIÓN -->
+    <div id="modal-eliminar-promo" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-flisol-card border border-slate-800 rounded-2xl max-w-sm w-full p-6 shadow-2xl">
+            <div class="text-center">
+                <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-amber-500/10 text-amber-500 mb-4 text-xl">
+                    <i class="fa-solid fa-trash-can"></i>
+                </div>
+                <h3 class="text-lg font-bold text-white mb-2">¿Eliminar Promoción?</h3>
+                <p class="text-xs text-flisol-muted mb-6">
+                    ¿Estás seguro de que quieres dar de baja la promoción <strong id="delete-promo-name" class="text-white"></strong>? Las ventas existentes que ya se hayan beneficiado de este descuento conservarán sus precios.
+                </p>
+                
+                <input type="hidden" id="delete-promo-id">
+                
+                <div class="flex items-center justify-center gap-3">
+                    <button type="button" onclick="cerrarModalEliminarPromo()"
+                            class="px-4 py-2 rounded-lg text-slate-300 hover:bg-slate-800 font-semibold text-xs transition-colors">
+                        Cancelar
+                    </button>
+                    <button type="button" onclick="ejecutarEliminacionPromo()"
+                            class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-4 py-2 rounded-lg text-xs shadow-md transition-colors">
+                        Sí, dar de baja
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- MODAL DE CONFIRMACIÓN DE ELIMINACIÓN DE VENTA -->
+    <div id="modal-eliminar-venta" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-flisol-card border border-slate-800 rounded-2xl max-w-sm w-full p-6 shadow-2xl">
+            <div class="text-center">
+                <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-rose-500/10 text-rose-500 mb-4 text-xl">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+                <h3 class="text-lg font-bold text-white mb-2">¿Eliminar Registro de Venta?</h3>
+                <p class="text-xs text-flisol-muted mb-6">
+                    Esta acción anulará la venta seleccionada. El stock del producto (<strong id="delete-venta-item-name" class="text-white"></strong>) se incrementará en <strong id="delete-venta-item-cantidad" class="text-white"></strong> unidades automáticamente.
+                </p>
+                
+                <input type="hidden" id="delete-venta-id">
+                
+                <div class="flex items-center justify-center gap-3">
+                    <button type="button" onclick="cerrarModalEliminarVenta()"
+                            class="px-4 py-2 rounded-lg text-slate-300 hover:bg-slate-800 font-semibold text-xs transition-colors">
+                        Cancelar
+                    </button>
+                    <button type="button" onclick="ejecutarEliminacionVenta()"
+                            class="bg-rose-600 hover:bg-rose-500 text-white font-bold px-4 py-2 rounded-lg text-xs shadow-md transition-colors">
+                        Sí, eliminar y restaurar stock
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- JAVASCRIPT DE CONTROL LOGICO -->
+    <script>
+        // Inicialización de la Base de Datos simulada con LocalStorage
+        let productos = JSON.parse(localStorage.getItem('flisol_productos')) || [
+            { id: '1', nombre: 'Remera FLISOL CABA 2026', stock: 50, precio: 12000 },
+            { id: '2', nombre: 'Sticker Pack GNU/Linux', stock: 150, precio: 1500 },
+            { id: '3', nombre: 'Gorra Fedora Oficial', stock: 15, precio: 8000 }
+        ];
+
+        let ventas = JSON.parse(localStorage.getItem('flisol_ventas')) || [];
+
+        let promociones = JSON.parse(localStorage.getItem('flisol_promociones')) || [
+            { id: 'p1', nombre: 'Descuento FLISOL (10%)', tipo: 'porcentaje', valor: 10 },
+            { id: 'p2', nombre: 'Descuento Colaborador ($1000)', tipo: 'monto', valor: 1000 }
+        ];
+
+        // Notificaciones Customizadas
+        function mostrarMensaje(titulo, mensaje, tipo = 'exito') {
+            const toastContainer = document.getElementById('toast-container');
+            const toastCard = document.getElementById('toast-card');
+            const toastIcon = document.getElementById('toast-icon');
+            const toastTitle = document.getElementById('toast-title');
+            const toastMessage = document.getElementById('toast-message');
+
+            toastContainer.classList.remove('hidden');
+
+            if (tipo === 'exito') {
+                toastCard.className = "bg-emerald-950/90 border-emerald-500/50 rounded-xl p-4 flex items-start gap-3 shadow-lg border text-emerald-100 w-full";
+                toastIcon.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-400"></i>`;
+                toastTitle.textContent = titulo;
+            } else if (tipo === 'error') {
+                toastCard.className = "bg-rose-950/90 border-rose-500/50 rounded-xl p-4 flex items-start gap-3 shadow-lg border text-rose-100 w-full";
+                toastIcon.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-rose-400"></i>`;
+                toastTitle.textContent = titulo;
+            } else if (tipo === 'info') {
+                toastCard.className = "bg-blue-950/90 border-blue-500/50 rounded-xl p-4 flex items-start gap-3 shadow-lg border text-blue-100 w-full";
+                toastIcon.innerHTML = `<i class="fa-solid fa-circle-info text-blue-400"></i>`;
+                toastTitle.textContent = titulo;
+            }
+
+            toastMessage.textContent = mensaje;
+
+            setTimeout(() => {
+                closeToast();
+            }, 6000);
+        }
+
+        function closeToast() {
+            document.getElementById('toast-container').classList.add('hidden');
+        }
+
+        // AGREGAR UN NUEVO PRODUCTO
+        function agregarProducto(event) {
+            event.preventDefault();
+
+            const nombreInput = document.getElementById('prod-nombre').value.trim();
+            const cantidadInput = parseInt(document.getElementById('prod-cantidad').value);
+            const precioInput = parseFloat(document.getElementById('prod-precio').value);
+
+            if (!nombreInput || isNaN(cantidadInput) || isNaN(precioInput)) {
+                mostrarMensaje('Campos incompletos', 'Por favor llena todos los datos correctamente.', 'error');
+                return;
+            }
+
+            // Comprobación de Duplicados
+            const existe = productos.some(p => p.nombre.toLowerCase().replace(/\s+/g, '') === nombreInput.toLowerCase().replace(/\s+/g, ''));
+            
+            if (existe) {
+                mostrarMensaje(
+                    'Producto duplicado', 
+                    `"${nombreInput}" ya está cargado en el sistema. Modifique el stock actual o el precio usando el botón "Editar" en la tabla.`, 
+                    'error'
+                );
+                return;
+            }
+
+            const nuevoProducto = {
+                id: crypto.randomUUID(),
+                nombre: nombreInput,
+                stock: cantidadInput,
+                precio: precioInput
+            };
+
+            productos.push(nuevoProducto);
+            guardarDatos();
+            render();
+            
+            document.getElementById('form-nuevo-producto').reset();
+            mostrarMensaje('¡Producto Guardado!', `Se cargó "${nombreInput}" con ${cantidadInput} unidades exitosamente.`, 'exito');
+        }
+
+        // AGREGAR NUEVA PROMOCIÓN
+        function agregarPromocion(event) {
+            event.preventDefault();
+
+            const nombreInput = document.getElementById('promo-nombre').value.trim();
+            const tipoInput = document.getElementById('promo-tipo').value;
+            const valorInput = parseFloat(document.getElementById('promo-valor').value);
+
+            if (!nombreInput || !tipoInput || isNaN(valorInput) || valorInput <= 0) {
+                mostrarMensaje('Datos Inválidos', 'Por favor llena los campos de promoción correctamente.', 'error');
+                return;
+            }
+
+            // Validar que no haya duplicados de promoción
+            if (promociones.some(p => p.nombre.toLowerCase() === nombreInput.toLowerCase())) {
+                mostrarMensaje('Nombre Duplicado', 'Ya existe una promoción con ese nombre.', 'error');
+                return;
+            }
+
+            const nuevaPromo = {
+                id: crypto.randomUUID(),
+                nombre: nombreInput,
+                tipo: tipoInput,
+                valor: valorInput
+            };
+
+            promociones.push(nuevaPromo);
+            guardarDatos();
+            render();
+
+            document.getElementById('form-nueva-promo').reset();
+            mostrarMensaje('Promoción Creada', `Se dio de alta la promoción "${nombreInput}".`, 'exito');
+        }
+
+        // CALCULAR PREVISUALIZACION DE VENTA EN TIEMPO REAL
+        function alCambiarProductoVenta() {
+            actualizarMaxVenta();
+            calcularPrevisualizacionVenta();
+        }
+
+        function calcularPrevisualizacionVenta() {
+            const selectProd = document.getElementById('venta-producto');
+            const selectPromo = document.getElementById('venta-promo');
+            const cantidadInput = document.getElementById('venta-cantidad');
+            const divPrev = document.getElementById('previsualizacion-venta');
+
+            const prodId = selectProd.value;
+            const cantidad = parseInt(cantidadInput.value) || 0;
+            const promoId = selectPromo.value;
+
+            const producto = productos.find(p => p.id === prodId);
+
+            if (!producto || cantidad <= 0) {
+                divPrev.classList.add('hidden');
+                return;
+            }
+
+            divPrev.classList.remove('hidden');
+
+            const subtotal = producto.precio * cantidad;
+            let descuento = 0;
+
+            if (promoId) {
+                const promo = promociones.find(p => p.id === promoId);
+                if (promo) {
+                    if (promo.tipo === 'porcentaje') {
+                        descuento = subtotal * (promo.valor / 100);
+                    } else if (promo.tipo === 'monto') {
+                        descuento = promo.valor;
+                    }
+                }
+            }
+
+            // El descuento no puede exceder el subtotal
+            if (descuento > subtotal) descuento = subtotal;
+
+            const total = subtotal - descuento;
+
+            document.getElementById('prev-subtotal').textContent = `$${subtotal.toFixed(2)}`;
+            const rowDesc = document.getElementById('row-prev-descuento');
+            if (descuento > 0) {
+                rowDesc.classList.remove('hidden');
+                document.getElementById('prev-descuento').textContent = `-$${descuento.toFixed(2)}`;
+            } else {
+                rowDesc.classList.add('hidden');
+            }
+            document.getElementById('prev-total').textContent = `$${total.toFixed(2)}`;
+        }
+
+        // REGISTRAR VENTA
+        function registrarVenta(event) {
+            event.preventDefault();
+
+            const prodId = document.getElementById('venta-producto').value;
+            const cantidadVenta = parseInt(document.getElementById('venta-cantidad').value);
+            const tipoPago = document.getElementById('venta-pago').value;
+            const promoId = document.getElementById('venta-promo').value;
+
+            if (!prodId) {
+                mostrarMensaje('Selección inválida', 'Debes elegir un producto de la lista.', 'error');
+                return;
+            }
+
+            const producto = productos.find(p => p.id === prodId);
+            
+            if (!producto) {
+                mostrarMensaje('Error de sistema', 'El producto seleccionado no existe.', 'error');
+                return;
+            }
+
+            // Validar stock disponible
+            if (cantidadVenta > producto.stock) {
+                mostrarMensaje(
+                    'Stock Insuficiente', 
+                    `Solo quedan ${producto.stock} unidades de "${producto.nombre}". No puedes vender ${cantidadVenta}.`, 
+                    'error'
+                );
+                return;
+            }
+
+            // Calcular Descuento
+            const subtotal = producto.precio * cantidadVenta;
+            let descuento = 0;
+            let promoNombre = '';
+
+            if (promoId) {
+                const promo = promociones.find(p => p.id === promoId);
+                if (promo) {
+                    promoNombre = promo.nombre;
+                    if (promo.tipo === 'porcentaje') {
+                        descuento = subtotal * (promo.valor / 100);
+                    } else if (promo.tipo === 'monto') {
+                        descuento = promo.valor;
+                    }
+                }
+            }
+
+            if (descuento > subtotal) descuento = subtotal;
+            const totalVenta = subtotal - descuento;
+
+            // Descontar Stock
+            producto.stock -= cantidadVenta;
+
+            // Registrar la operación
+            const nuevaVenta = {
+                id: crypto.randomUUID(),
+                fecha: new Date().toLocaleString('es-AR'),
+                productoId: producto.id,
+                productoNombre: producto.nombre,
+                cantidad: cantidadVenta,
+                precioUnitario: producto.precio, // Guardamos precio unitario al momento de la venta
+                descuento: descuento,
+                promoNombre: promoNombre,
+                pago: tipoPago,
+                total: totalVenta
+            };
+
+            ventas.unshift(nuevaVenta);
+            
+            guardarDatos();
+            render();
+
+            document.getElementById('form-nueva-venta').reset();
+            document.getElementById('venta-stock-disponible').textContent = 'Stock Disp: -';
+            document.getElementById('previsualizacion-venta').classList.add('hidden');
+            
+            mostrarMensaje('Venta Procesada', `Se vendieron ${cantidadVenta} de "${producto.nombre}". Total: $${totalVenta.toFixed(2)}`, 'exito');
+        }
+
+        // ACTUALIZAR LÍMITE DE VENTA EN TIEMPO REAL
+        function actualizarMaxVenta() {
+            const select = document.getElementById('venta-producto');
+            const cantidadInput = document.getElementById('venta-cantidad');
+            const stockLabel = document.getElementById('venta-stock-disponible');
+            
+            const prodId = select.value;
+            const producto = productos.find(p => p.id === prodId);
+
+            if (producto) {
+                cantidadInput.max = producto.stock;
+                stockLabel.innerHTML = `Stock Disp: <strong class="${producto.stock === 0 ? 'text-red-500' : 'text-emerald-400'}">${producto.stock}</strong>`;
+                if (producto.stock === 0) {
+                    cantidadInput.placeholder = "Sin stock";
+                    cantidadInput.disabled = true;
+                } else {
+                    cantidadInput.placeholder = "Max " + producto.stock;
+                    cantidadInput.disabled = false;
+                }
+            } else {
+                stockLabel.textContent = 'Stock Disp: -';
+                cantidadInput.placeholder = "Cantidad";
+                cantidadInput.disabled = false;
+            }
+        }
+
+        // REINICIAR LAS VENTAS (Arqueo de caja) - MODALES MODERNOS
+        function abrirModalReiniciarCaja() {
+            document.getElementById('modal-confirmar-reinicio').classList.remove('hidden');
+        }
+
+        function cerrarModalReiniciarCaja() {
+            document.getElementById('modal-confirmar-reinicio').classList.add('hidden');
+        }
+
+        function confirmarReinicioCaja() {
+            ventas = [];
+            guardarDatos();
+            render();
+            cerrarModalReiniciarCaja();
+            mostrarMensaje('Caja Reiniciada', 'El historial de ventas se ha limpiado por completo.', 'info');
+        }
+
+        // GUARDADO EN LOCAL STORAGE
+        function guardarDatos() {
+            localStorage.setItem('flisol_productos', JSON.stringify(productos));
+            localStorage.setItem('flisol_ventas', JSON.stringify(ventas));
+            localStorage.setItem('flisol_promociones', JSON.stringify(promociones));
+        }
+
+        // MODAL EDICIÓN PRODUCTO: CONTROLADORES
+        function abrirModalEditar(id) {
+            const producto = productos.find(p => p.id === id);
+            if (!producto) return;
+
+            document.getElementById('edit-id').value = producto.id;
+            document.getElementById('edit-nombre').value = producto.nombre;
+            document.getElementById('edit-cantidad').value = producto.stock;
+            document.getElementById('edit-precio').value = producto.precio;
+
+            const modal = document.getElementById('modal-editar');
+            modal.classList.remove('hidden');
+        }
+
+        function cerrarModal() {
+            document.getElementById('modal-editar').classList.add('hidden');
+        }
+
+        // MODAL EDICIÓN PROMOCIÓN: CONTROLADORES
+        function abrirModalEditarPromo(id) {
+            const promo = promociones.find(p => p.id === id);
+            if (!promo) return;
+
+            document.getElementById('edit-promo-id').value = promo.id;
+            document.getElementById('edit-promo-nombre').value = promo.nombre;
+            document.getElementById('edit-promo-tipo').value = promo.tipo;
+            document.getElementById('edit-promo-valor').value = promo.valor;
+
+            document.getElementById('modal-editar-promo').classList.remove('hidden');
+        }
+
+        function cerrarModalPromo() {
+            document.getElementById('modal-editar-promo').classList.add('hidden');
+        }
+
+        function guardarModificacionPromo(event) {
+            event.preventDefault();
+
+            const id = document.getElementById('edit-promo-id').value;
+            const nuevoNombre = document.getElementById('edit-promo-nombre').value.trim();
+            const nuevoTipo = document.getElementById('edit-promo-tipo').value;
+            const nuevoValor = parseFloat(document.getElementById('edit-promo-valor').value);
+
+            if (!nuevoNombre || !nuevoTipo || isNaN(nuevoValor) || nuevoValor <= 0) {
+                mostrarMensaje('Campos inválidos', 'Por favor llena los datos de modificación correctamente.', 'error');
+                return;
+            }
+
+            const existeOtro = promociones.some(p => p.id !== id && p.nombre.toLowerCase() === nuevoNombre.toLowerCase());
+            if (existeOtro) {
+                mostrarMensaje('Nombre duplicado', 'Ya existe otra promoción registrada con ese nombre.', 'error');
+                return;
+            }
+
+            const promoIndex = promociones.findIndex(p => p.id === id);
+            if (promoIndex !== -1) {
+                promociones[promoIndex].nombre = nuevoNombre;
+                promociones[promoIndex].tipo = nuevoTipo;
+                promociones[promoIndex].valor = nuevoValor;
+
+                guardarDatos();
+                render();
+                cerrarModalPromo();
+                mostrarMensaje('Promoción Modificada', `Se actualizó la promoción "${nuevoNombre}" de manera exitosa.`, 'exito');
+            }
+        }
+
+        // MODAL ELIMINAR PROMOCIÓN: CONTROLADORES
+        function abrirModalEliminarPromo(id) {
+            const promo = promociones.find(p => p.id === id);
+            if (!promo) return;
+
+            document.getElementById('delete-promo-id').value = promo.id;
+            document.getElementById('delete-promo-name').textContent = promo.nombre;
+
+            document.getElementById('modal-eliminar-promo').classList.remove('hidden');
+        }
+
+        function cerrarModalEliminarPromo() {
+            document.getElementById('modal-eliminar-promo').classList.add('hidden');
+        }
+
+        function ejecutarEliminacionPromo() {
+            const id = document.getElementById('delete-promo-id').value;
+            const index = promociones.findIndex(p => p.id === id);
+
+            if (index !== -1) {
+                const nombreEliminado = promociones[index].nombre;
+                promociones.splice(index, 1);
+
+                guardarDatos();
+                render();
+                cerrarModalEliminarPromo();
+                mostrarMensaje('Promoción dada de baja', `La promoción "${nombreEliminado}" fue eliminada del catálogo.`, 'info');
+            }
+        }
+
+        // GUARDAR MODIFICACIÓN DE PRODUCTO
+        function guardarModificacion(event) {
+            event.preventDefault();
+
+            const id = document.getElementById('edit-id').value;
+            const nuevoNombre = document.getElementById('edit-nombre').value.trim();
+            const nuevoStock = parseInt(document.getElementById('edit-cantidad').value);
+            const nuevoPrecio = parseFloat(document.getElementById('edit-precio').value);
+
+            if (!nuevoNombre || isNaN(nuevoStock) || isNaN(nuevoPrecio)) {
+                mostrarMensaje('Error de ingreso', 'Campos de edición inválidos.', 'error');
+                return;
+            }
+
+            const existeOtro = productos.some(p => p.id !== id && p.nombre.toLowerCase().replace(/\s+/g, '') === nuevoNombre.toLowerCase().replace(/\s+/g, ''));
+            if (existeOtro) {
+                mostrarMensaje(
+                    'Conflicto de Nombre', 
+                    `Ya existe otro producto registrado con el nombre "${nuevoNombre}".`, 
+                    'error'
+                );
+                return;
+            }
+
+            const prodIndex = productos.findIndex(p => p.id === id);
+            if (prodIndex !== -1) {
+                const viejoNombre = productos[prodIndex].nombre;
+                
+                // Actualizar de forma masiva las referencias en el historial de ventas si cambia de nombre
+                if (viejoNombre !== nuevoNombre) {
+                    ventas.forEach(v => {
+                        if (v.productoId === id || v.productoNombre === viejoNombre) {
+                            v.productoNombre = nuevoNombre;
+                        }
+                    });
+                }
+
+                productos[prodIndex].nombre = nuevoNombre;
+                productos[prodIndex].stock = nuevoStock;
+                productos[prodIndex].precio = nuevoPrecio;
+
+                guardarDatos();
+                render();
+                cerrarModal();
+                mostrarMensaje('¡Producto Modificado!', `"${viejoNombre}" ha sido actualizado con éxito.`, 'exito');
+            }
+        }
+
+        // ELIMINAR PRODUCTO: CONTROLADORES
+        function abrirModalEliminar(id) {
+            const producto = productos.find(p => p.id === id);
+            if (!producto) return;
+
+            document.getElementById('delete-id').value = producto.id;
+            document.getElementById('delete-item-name').textContent = producto.nombre;
+
+            const modal = document.getElementById('modal-eliminar');
+            modal.classList.remove('hidden');
+        }
+
+        function cerrarModalEliminar() {
+            document.getElementById('modal-eliminar').classList.add('hidden');
+        }
+
+        function ejecutarEliminacion() {
+            const id = document.getElementById('delete-id').value;
+            const index = productos.findIndex(p => p.id === id);
+            
+            if (index !== -1) {
+                const nombreEliminado = productos[index].nombre;
+                productos.splice(index, 1);
+                guardarDatos();
+                render();
+                cerrarModalEliminar();
+                mostrarMensaje('Producto Eliminar', `"${nombreEliminado}" ha sido retirado del inventario.`, 'info');
+            }
+        }
+
+        // MODAL EDICIÓN VENTA: CONTROLADORES
+        function abrirModalEditarVenta(id) {
+            const venta = ventas.find(v => v.id === id);
+            if (!venta) return;
+
+            // Encontrar el producto correspondiente en inventario para comprobar stock
+            const producto = productos.find(p => p.id === venta.productoId || p.nombre === venta.productoNombre);
+            
+            // Stock físico virtual acumulado (stock actual + cantidad que se vendió en esta operación)
+            const stockFisicoDisponible = producto ? (producto.stock + venta.cantidad) : venta.cantidad;
+
+            document.getElementById('edit-venta-id').value = venta.id;
+            document.getElementById('edit-venta-producto-nombre').textContent = venta.productoNombre;
+            document.getElementById('edit-venta-cantidad').value = venta.cantidad;
+            document.getElementById('edit-venta-cantidad').max = stockFisicoDisponible;
+            document.getElementById('edit-venta-pago').value = venta.pago;
+            document.getElementById('edit-venta-precio').value = venta.precioUnitario !== undefined ? venta.precioUnitario : producto?.precio || 0;
+            document.getElementById('edit-venta-descuento-txt').textContent = `-$${(venta.descuento || 0).toFixed(2)}`;
+
+            document.getElementById('edit-venta-stock-max').innerHTML = `Límite Máximo: <strong class="text-emerald-400">${stockFisicoDisponible} u</strong>`;
+
+            const modal = document.getElementById('modal-editar-venta');
+            modal.classList.remove('hidden');
+        }
+
+        function cerrarModalVenta() {
+            document.getElementById('modal-editar-venta').classList.add('hidden');
+        }
+
+        // GUARDAR MODIFICACIÓN DE VENTA
+        function guardarModificacionVenta(event) {
+            event.preventDefault();
+
+            const ventaId = document.getElementById('edit-venta-id').value;
+            const nuevaCantidad = parseInt(document.getElementById('edit-venta-cantidad').value);
+            const nuevoPago = document.getElementById('edit-venta-pago').value;
+            const nuevoPrecioUnitario = parseFloat(document.getElementById('edit-venta-precio').value);
+
+            if (isNaN(nuevaCantidad) || nuevaCantidad <= 0 || isNaN(nuevoPrecioUnitario) || nuevoPrecioUnitario < 0) {
+                mostrarMensaje('Ingreso inválido', 'Por favor complete todos los datos con valores mayores a cero.', 'error');
+                return;
+            }
+
+            const ventaIndex = ventas.findIndex(v => v.id === ventaId);
+            if (ventaIndex === -1) {
+                mostrarMensaje('Error', 'No se encontró la venta especificada.', 'error');
+                return;
+            }
+
+            const venta = ventas[ventaIndex];
+            const producto = productos.find(p => p.id === venta.productoId || p.nombre === venta.productoNombre);
+
+            // Almacenar descuento previo si existía para aplicarlo sobre la nueva base
+            const subtotalNuevo = nuevoPrecioUnitario * nuevaCantidad;
+            let descuentoAplicado = venta.descuento || 0;
+
+            if (descuentoAplicado > subtotalNuevo) {
+                descuentoAplicado = subtotalNuevo;
+            }
+
+            if (!producto) {
+                // Si el producto original fue borrado permanentemente de la DB de stock
+                venta.cantidad = nuevaCantidad;
+                venta.pago = nuevoPago;
+                venta.precioUnitario = nuevoPrecioUnitario;
+                venta.descuento = descuentoAplicado;
+                venta.total = subtotalNuevo - descuentoAplicado;
+                
+                guardarDatos();
+                render();
+                cerrarModalVenta();
+                mostrarMensaje('Venta Corregida', 'Se actualizó la venta del producto (el cual ya no se encuentra en stock).', 'info');
+                return;
+            }
+
+            // Validar stock disponible consolidado
+            const stockFisicoDisponible = producto.stock + venta.cantidad;
+            if (nuevaCantidad > stockFisicoDisponible) {
+                mostrarMensaje(
+                    'Stock Excedido', 
+                    `Solo se dispone de un total acumulado de ${stockFisicoDisponible} unidades. No se puede guardar la corrección.`, 
+                    'error'
+                );
+                return;
+            }
+
+            // Restauramos stock anterior primero y descontamos nueva cantidad
+            producto.stock = stockFisicoDisponible - nuevaCantidad;
+
+            // Reajustar valores de la venta
+            venta.cantidad = nuevaCantidad;
+            venta.pago = nuevoPago;
+            venta.precioUnitario = nuevoPrecioUnitario;
+            venta.descuento = descuentoAplicado;
+            venta.total = subtotalNuevo - descuentoAplicado;
+
+            guardarDatos();
+            render();
+            cerrarModalVenta();
+            mostrarMensaje('Venta Actualizada', 'La venta fue corregida y el stock fue reajustado en tiempo real.', 'exito');
+        }
+
+        // ELIMINAR REGISTRO DE VENTA: CONTROLADORES
+        function abrirModalEliminarVenta(id) {
+            const venta = ventas.find(v => v.id === id);
+            if (!venta) return;
+
+            document.getElementById('delete-venta-id').value = venta.id;
+            document.getElementById('delete-venta-item-name').textContent = venta.productoNombre;
+            document.getElementById('delete-venta-item-cantidad').textContent = venta.cantidad;
+
+            const modal = document.getElementById('modal-eliminar-venta');
+            modal.classList.remove('hidden');
+        }
+
+        function cerrarModalEliminarVenta() {
+            document.getElementById('modal-eliminar-venta').classList.add('hidden');
+        }
+
+        function ejecutarEliminacionVenta() {
+            const id = document.getElementById('delete-venta-id').value;
+            const index = ventas.findIndex(v => v.id === id);
+            
+            if (index !== -1) {
+                const venta = ventas[index];
+                
+                // Buscar el producto original para devolverle la cantidad que se había restado
+                const producto = productos.find(p => p.id === venta.productoId || p.nombre === venta.productoNombre);
+                if (producto) {
+                    producto.stock += venta.cantidad;
+                }
+                
+                const descripcionNotificacion = `${venta.cantidad} u de "${venta.productoNombre}"`;
+                
+                // Quitar venta del array de ventas
+                ventas.splice(index, 1);
+                
+                guardarDatos();
+                render();
+                cerrarModalEliminarVenta();
+                mostrarMensaje('Venta Anulada', `Se eliminó el registro de venta por ${descripcionNotificacion}. El stock ha sido reincorporado.`, 'info');
+            }
+        }
+
+        // FUNCIÓN AUXILIAR DE RENDERIZACIÓN DE TABLAS E HISTORIAL
+        function render() {
+            const tbodyProductos = document.getElementById('tabla-productos');
+            const tbodyVentas = document.getElementById('tabla-ventas');
+            const listPromociones = document.getElementById('lista-promociones');
+            const selectVentaProd = document.getElementById('venta-producto');
+            const selectVentaPromo = document.getElementById('venta-promo');
+            const buscadorVal = document.getElementById('buscar-producto').value.toLowerCase();
+            const buscadorVentaVal = document.getElementById('buscar-venta').value.toLowerCase();
+            const filtroPago = document.getElementById('filtrar-pago').value;
+
+            // Guardar selecciones actuales para reestablecerlas
+            const seleccionPreviaProd = selectVentaProd.value;
+            const seleccionPreviaPromo = selectVentaPromo.value;
+
+            // Limpieza inicial
+            tbodyProductos.innerHTML = '';
+            tbodyVentas.innerHTML = '';
+            listPromociones.innerHTML = '';
+            selectVentaProd.innerHTML = '<option value="" disabled selected>-- Elige un producto --</option>';
+            selectVentaPromo.innerHTML = '<option value="">-- Sin descuento --</option>';
+
+            // Filtrar productos por buscador y por estado de stock
+            const filtroStock = document.getElementById('filtrar-stock').value;
+            const productosFiltrados = productos.filter(p => {
+                const coincideBuscador = p.nombre.toLowerCase().includes(buscadorVal);
+                let coincideStock = true;
+                
+                if (filtroStock === 'ConStock') {
+                    coincideStock = p.stock > 0;
+                } else if (filtroStock === 'SinStock') {
+                    coincideStock = p.stock === 0;
+                }
+                
+                return coincideBuscador && coincideStock;
+            });
+
+            // RENDER INVENTARIO
+            if (productosFiltrados.length === 0) {
+                document.getElementById('sin-productos-msg').classList.remove('hidden');
+            } else {
+                document.getElementById('sin-productos-msg').classList.add('hidden');
+                
+                productosFiltrados.forEach(prod => {
+                    let badgeStock = '';
+                    if (prod.stock === 0) {
+                        badgeStock = `<span class="bg-red-500/10 text-red-400 border border-red-500/20 text-xs px-2.5 py-1 rounded-full font-bold">Sin Stock</span>`;
+                    } else if (prod.stock <= 5) {
+                        badgeStock = `<span class="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs px-2.5 py-1 rounded-full font-bold">Crítico (${prod.stock})</span>`;
+                    } else {
+                        badgeStock = `<span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs px-2.5 py-1 rounded-full font-bold">Óptimo</span>`;
+                    }
+
+                    const fila = document.createElement('tr');
+                    fila.className = "hover:bg-slate-900/30 transition-colors";
+                    fila.innerHTML = `
+                        <td class="py-4 px-6 font-semibold text-white">${prod.nombre}</td>
+                        <td class="py-4 px-6 text-right text-slate-300 font-mono">$${prod.precio.toFixed(2)}</td>
+                        <td class="py-4 px-6 text-center text-white font-bold font-mono">${prod.stock} u</td>
+                        <td class="py-4 px-6 text-center">${badgeStock}</td>
+                        <td class="py-4 px-6 text-center">
+                            <div class="flex items-center justify-center gap-2">
+                                <button onclick="abrirModalEditar('${prod.id}')" 
+                                        class="text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 px-3 py-1.5 rounded-lg transition-all text-xs font-semibold flex items-center gap-1"
+                                        title="Modificar stock, precio o nombre">
+                                    <i class="fa-solid fa-pen-to-square"></i> Editar
+                                </button>
+                                <button onclick="abrirModalEliminar('${prod.id}')" 
+                                        class="text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 px-3 py-1.5 rounded-lg transition-all text-xs font-semibold flex items-center gap-1"
+                                        title="Eliminar producto por completo">
+                                    <i class="fa-solid fa-trash-can"></i> Eliminar
+                                </button>
+                            </div>
+                        </td>
+                    `;
+                    tbodyProductos.appendChild(fila);
+                });
+            }
+
+            // RENDER RELLENO SELECTOR DE VENTAS
+            productos.forEach(prod => {
+                const opt = document.createElement('option');
+                opt.value = prod.id;
+                opt.disabled = prod.stock <= 0;
+                opt.textContent = `${prod.nombre} (${prod.stock <= 0 ? 'SIN STOCK' : '$' + prod.precio.toFixed(2)})`;
+                selectVentaProd.appendChild(opt);
+            });
+
+            // RENDER RELLENO SELECTOR DE PROMOCIONES Y LISTADO ADMIN
+            promociones.forEach(p => {
+                // Selector en ventas
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                const txtValor = p.tipo === 'porcentaje' ? `${p.valor}%` : `$${p.valor}`;
+                opt.textContent = `${p.nombre} (${txtValor})`;
+                selectVentaPromo.appendChild(opt);
+
+                // Lista de administración lateral
+                const itemPromo = document.createElement('div');
+                itemPromo.className = "flex items-center justify-between bg-slate-900/60 border border-slate-800/80 rounded-xl p-3";
+                itemPromo.innerHTML = `
+                    <div class="flex-1 min-w-0 pr-3">
+                        <p class="text-xs font-bold text-white truncate">${p.nombre}</p>
+                        <p class="text-[10px] text-amber-400 font-mono mt-0.5">${p.tipo === 'porcentaje' ? p.valor + '%' : '$' + p.valor}</p>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <button onclick="abrirModalEditarPromo('${p.id}')" class="text-amber-400 hover:text-amber-300 bg-amber-500/10 p-1.5 rounded-lg transition-colors text-xs" title="Editar">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                        </button>
+                        <button onclick="abrirModalEliminarPromo('${p.id}')" class="text-rose-500 hover:text-rose-400 bg-rose-500/10 p-1.5 rounded-lg transition-colors text-xs" title="Eliminar">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
+                `;
+                listPromociones.appendChild(itemPromo);
+            });
+
+            // Reestablecer selecciones
+            if (seleccionPreviaProd && productos.some(p => p.id === seleccionPreviaProd)) {
+                selectVentaProd.value = seleccionPreviaProd;
+                actualizarMaxVenta();
+            }
+
+            if (seleccionPreviaPromo && promociones.some(p => p.id === seleccionPreviaPromo)) {
+                selectVentaPromo.value = seleccionPreviaPromo;
+            }
+
+            // CÁLCULO DE TOTALES DE CAJA (Siempre global)
+            let totalGeneral = 0;
+            let totalEfectivo = 0;
+            let totalTransferencia = 0;
+
+            ventas.forEach(v => {
+                totalGeneral += v.total;
+                if (v.pago === 'Efectivo') {
+                    totalEfectivo += v.total;
+                } else {
+                    totalTransferencia += v.total;
+                }
+            });
+
+            // FILTRAR VENTAS PARA MOSTRAR EN LA TABLA
+            const ventasFiltradas = ventas.filter(v => {
+                const coincidePago = (filtroPago === 'Todos' || v.pago === filtroPago);
+                const coincideBuscador = (
+                    v.productoNombre.toLowerCase().includes(buscadorVentaVal) || 
+                    v.fecha.toLowerCase().includes(buscadorVentaVal) ||
+                    (v.promoNombre && v.promoNombre.toLowerCase().includes(buscadorVentaVal))
+                );
+                return coincidePago && coincideBuscador;
+            });
+
+            // RENDER HISTORIAL DE VENTAS
+            if (ventasFiltradas.length === 0) {
+                document.getElementById('sin-ventas-msg').classList.remove('hidden');
+            } else {
+                document.getElementById('sin-ventas-msg').classList.add('hidden');
+                
+                ventasFiltradas.forEach(v => {
+                    const badgePago = v.pago === 'Efectivo' 
+                        ? `<span class="bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded text-xs"><i class="fa-solid fa-money-bill-1"></i> Efectivo</span>`
+                        : `<span class="bg-blue-500/10 text-flisol-blue px-2 py-0.5 rounded text-xs"><i class="fa-solid fa-mobile-screen-button"></i> Transferencia</span>`;
+
+                    // Mostrar descuento en la celda del producto si corresponde
+                    const tagDescuento = v.descuento > 0 
+                        ? `<span class="block text-[10px] text-amber-400 mt-1"><i class="fa-solid fa-tag"></i> Descuento: -$${v.descuento.toFixed(2)} (${v.promoNombre || 'Promo'})</span>` 
+                        : '';
+
+                    const fila = document.createElement('tr');
+                    fila.className = "hover:bg-slate-900/30 transition-colors border-b border-slate-800";
+                    fila.innerHTML = `
+                        <td class="py-3 px-6 text-xs text-flisol-muted font-mono">${v.fecha}</td>
+                        <td class="py-3 px-6 text-white font-medium">
+                            ${v.productoNombre}
+                            ${tagDescuento}
+                        </td>
+                        <td class="py-3 px-6 text-center text-slate-300 font-mono">${v.cantidad}</td>
+                        <td class="py-3 px-6 text-center">${badgePago}</td>
+                        <td class="py-3 px-6 text-right text-flisol-green font-bold font-mono">$${v.total.toFixed(2)}</td>
+                        <td class="py-3 px-6 text-center">
+                            <div class="flex items-center justify-center gap-2">
+                                <button onclick="abrirModalEditarVenta('${v.id}')" 
+                                        class="text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 px-2 py-1 rounded transition-all text-xs font-semibold flex items-center gap-1"
+                                        title="Modificar cantidad, precio unitario o método de pago de esta venta">
+                                    <i class="fa-solid fa-file-pen"></i> Corregir
+                                </button>
+                                <button onclick="abrirModalEliminarVenta('${v.id}')" 
+                                        class="text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 px-2 py-1 rounded transition-all text-xs font-semibold flex items-center gap-1"
+                                        title="Eliminar esta venta por completo y devolver stock">
+                                    <i class="fa-solid fa-trash-can"></i> Anular
+                                </button>
+                            </div>
+                        </td>
+                    `;
+                    tbodyVentas.appendChild(fila);
+                });
+            }
+
+            // ACTUALIZAR CONTADORES GLOBALES DE CAJA
+            document.getElementById('box-total-recaudado').textContent = `$${totalGeneral.toFixed(2)}`;
+            document.getElementById('box-total-efectivo').textContent = `$${totalEfectivo.toFixed(2)}`;
+            document.getElementById('box-total-transferencia').textContent = `$${totalTransferencia.toFixed(2)}`;
+        }
+
+        // Helper para convertir el logo a base64 con recorte circular de forma asíncrona robusta (evita bordes cuadrados)
+        function obtenerLogoBase64(callback) {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = function() {
+                const canvas = document.createElement('canvas');
+                // Buscamos una proporción cuadrada perfecta basada en el lado menor
+                const size = Math.min(img.naturalWidth || img.width || 120, img.naturalHeight || img.height || 120);
+                canvas.width = size;
+                canvas.height = size;
+                const ctx = canvas.getContext('2d');
+                try {
+                    // Crear un recorte circular perfecto en el canvas
+                    ctx.beginPath();
+                    ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+                    ctx.closePath();
+                    ctx.clip();
+                    
+                    // Dibujar la imagen centrada dentro del recorte circular
+                    ctx.drawImage(img, 0, 0, size, size);
+                    const dataURL = canvas.toDataURL('image/png');
+                    callback(dataURL);
+                } catch (error) {
+                    console.warn("Fallo conversión de imagen en canvas, se aplicará diseño de contingencia.", error);
+                    callback(null);
+                }
+            };
+            img.onerror = function() {
+                console.warn("No se pudo cargar la imagen del logo, aplicando fallback.");
+                callback(null);
+            };
+            img.src = 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRap-hzZGsg-Q3RG1J264E2plkHTVhLfJmh0w&s';
+        }
+
+        // GENERACIÓN DE REPORTE PDF PROFESIONAL CON jsPDF
+        function generarReportePDF() {
+            mostrarMensaje('Generando Reporte', 'Procesando carátula e índices, por favor espere...', 'info');
+            
+            obtenerLogoBase64(function(logoBase64) {
+                try {
+                    const { jsPDF } = window.jspdf;
+                    const doc = new jsPDF('p', 'mm', 'a4');
+                    
+                    // Colores temáticos FLISOL
+                    const colorSlateDark = [15, 23, 42];   // Slate 900
+                    const colorGreenFli = [34, 197, 94];   // Verde FLISOL
+                    const colorAmber = [217, 119, 6];      // Amber 600
+                    const ahora = new Date().toLocaleString('es-AR');
+
+                    // =========================================================
+                    // HOJA 1: CARÁTULA / PORTADA
+                    // =========================================================
+                    // Fondo completo de la portada
+                    doc.setFillColor(...colorSlateDark);
+                    doc.rect(0, 0, 210, 297, 'F');
+
+                    // Marco decorativo tecnológico
+                    doc.setDrawColor(...colorGreenFli);
+                    doc.setLineWidth(1.5);
+                    doc.rect(8, 8, 194, 281);
+                    
+                    doc.setLineWidth(0.4);
+                    doc.rect(11, 11, 188, 275);
+
+                    // Pequeñas cruces en las esquinas decorativas
+                    doc.line(6, 11, 13, 11);
+                    doc.line(11, 6, 11, 13);
+                    doc.line(197, 11, 204, 11);
+                    doc.line(199, 6, 199, 13);
+                    doc.line(6, 286, 13, 286);
+                    doc.line(11, 284, 11, 291);
+                    doc.line(197, 286, 204, 286);
+                    doc.line(199, 284, 199, 291);
+
+                    // Dibujar el círculo verde de fondo de la portada
+                    doc.setFillColor(...colorGreenFli);
+                    doc.ellipse(105, 75, 32, 32, 'F');
+
+                    // Dibujar Logo sobre el círculo de forma concéntrica
+                    if (logoBase64) {
+                        try {
+                            doc.addImage(logoBase64, 'PNG', 75, 45, 60, 60);
+                        } catch (e) {
+                            console.error("Error al inyectar imagen en el PDF:", e);
+                            // Fallback con texto centrado
+                            doc.setTextColor(...colorSlateDark);
+                            doc.setFont("helvetica", "bold");
+                            doc.setFontSize(16);
+                            doc.text("FLISOL", 105, 77, { align: "center" });
+                        }
+                    } else {
+                        // Logotipo vectorial elegante de respaldo si falla totalmente la carga
+                        doc.setTextColor(...colorSlateDark);
+                        doc.setFont("helvetica", "bold");
+                        doc.setFontSize(16);
+                        doc.text("FLISOL", 105, 77, { align: "center" });
+                        
+                        doc.setTextColor(255, 255, 255);
+                        doc.setFontSize(8);
+                        doc.text("[ GNU / Linux ]", 105, 90, { align: "center" });
+                    }
+
+                    // Títulos de la portada
+                    doc.setTextColor(255, 255, 255);
+                    doc.setFont("helvetica", "bold");
+                    doc.setFontSize(22);
+                    
+                    const textTitulo = "Reporte de Caja, Ventas, Promociones e Inventario de Stock";
+                    const splitTitulo = doc.splitTextToSize(textTitulo, 160);
+                    doc.text(splitTitulo, 105, 145, { align: "center" });
+
+                    doc.setTextColor(...colorGreenFli);
+                    doc.setFontSize(14);
+                    doc.text("FLISOL CABA 2026", 105, 178, { align: "center" });
+
+                    // Pie de carátula con metadatos
+                    doc.setTextColor(148, 163, 184); // Slate 400
+                    doc.setFont("helvetica", "normal");
+                    doc.setFontSize(10);
+                    doc.text(`Fecha y Hora de Emisión: ${ahora}`, 105, 225, { align: "center" });
+                    doc.text("Software de Gestión para Eventos de Divulgación Tecnológica", 105, 233, { align: "center" });
+                    doc.setFont("helvetica", "bold");
+                    doc.setTextColor(255, 255, 255);
+                    doc.text("CABA - ARGENTINA", 105, 245, { align: "center" });
+
+                    // =========================================================
+                    // FUNCIÓN HELPER PARA CABECERAS DE SECCIÓN EN NUEVAS HOJAS
+                    // =========================================================
+                    function dibujarCabeceraDeHoja(tituloSeccion) {
+                        doc.setFillColor(...colorSlateDark);
+                        doc.rect(0, 0, 210, 24, 'F');
+                        
+                        // Barra divisoria verde
+                        doc.setFillColor(...colorGreenFli);
+                        doc.rect(0, 24, 210, 1, 'F');
+                        
+                        doc.setTextColor(255, 255, 255);
+                        doc.setFont("helvetica", "bold");
+                        doc.setFontSize(11);
+                        doc.text(tituloSeccion, 14, 15);
+                        
+                        doc.setFont("helvetica", "normal");
+                        doc.setFontSize(8);
+                        doc.setTextColor(148, 163, 184);
+                        doc.text("FLISOL CABA 2026", 196, 15, { align: "right" });
+                    }
+
+                    // Calculo de acumulados financieros globales
+                    let totalVentas = 0;
+                    let totalEfectivo = 0;
+                    let totalTransferencias = 0;
+
+                    ventas.forEach(v => {
+                        totalVentas += v.total;
+                        if (v.pago === 'Efectivo') {
+                            totalEfectivo += v.total;
+                        } else {
+                            totalTransferencias += v.total;
+                        }
+                    });
+
+                    // =========================================================
+                    // HOJA 2: SECCIÓN 1 - RESUMEN CONSOLIDADO DE CAJA Y TABLAS DE PAGO
+                    // =========================================================
+                    doc.addPage();
+                    dibujarCabeceraDeHoja("1. Resumen Consolidado de Caja y Arqueo por Pago");
+
+                    // Dibujar Tarjetas de Resumen Financiero
+                    doc.setDrawColor(226, 232, 240);
+                    doc.setFillColor(248, 250, 252);
+                    
+                    // Tarjeta 1: Total Recaudado
+                    doc.rect(14, 33, 56, 18, 'FD');
+                    doc.setFontSize(7);
+                    doc.setTextColor(100, 116, 139);
+                    doc.setFont("helvetica", "bold");
+                    doc.text("TOTAL RECAUDADO", 18, 38);
+                    doc.setFontSize(11);
+                    doc.setTextColor(22, 163, 74); // Verde text
+                    doc.text(`$${totalVentas.toFixed(2)}`, 18, 46);
+
+                    // Tarjeta 2: Caja Efectivo
+                    doc.rect(77, 33, 56, 18, 'FD');
+                    doc.setFontSize(7);
+                    doc.setTextColor(100, 116, 139);
+                    doc.setFont("helvetica", "bold");
+                    doc.text("CAJA EFECTIVO", 81, 38);
+                    doc.setFontSize(11);
+                    doc.setTextColor(...colorSlateDark);
+                    doc.text(`$${totalEfectivo.toFixed(2)}`, 81, 46);
+
+                    // Tarjeta 3: MercadoPago y Transferencia
+                    doc.rect(140, 33, 56, 18, 'FD');
+                    doc.setFontSize(7);
+                    doc.setTextColor(100, 116, 139);
+                    doc.setFont("helvetica", "bold");
+                    doc.text("MERCADOPAGO / TRANSF.", 144, 38);
+                    doc.setFontSize(11);
+                    doc.setTextColor(59, 130, 246); // Azul
+                    doc.text(`$${totalTransferencias.toFixed(2)}`, 144, 46);
+
+                    // TABLA DE RESUMEN: VENTAS EN EFECTIVO
+                    doc.setFontSize(10);
+                    doc.setTextColor(...colorSlateDark);
+                    doc.setFont("helvetica", "bold");
+                    doc.text("Desglose Analítico de Ventas en Efectivo", 14, 62);
+
+                    const ventasEfectivo = ventas.filter(v => v.pago === 'Efectivo');
+                    const arrayVentasEfectivo = ventasEfectivo.map(v => [
+                        v.fecha,
+                        v.productoNombre + (v.descuento > 0 ? ` [Desc: -$${v.descuento.toFixed(2)}]` : ''),
+                        `${v.cantidad} u`,
+                        `$${(v.precioUnitario || 0).toFixed(2)}`,
+                        `$${v.total.toFixed(2)}`
+                    ]);
+
+                    doc.autoTable({
+                        startY: 66,
+                        head: [['Fecha y Hora', 'Producto / Descuentos', 'Cantidad', 'Precio Unit.', 'Total']],
+                        body: arrayVentasEfectivo.length > 0 ? arrayVentasEfectivo : [['-', 'No se registran transacciones en efectivo', '-', '-', '-']],
+                        headStyles: { fillColor: [22, 163, 74], textColor: [255, 255, 255], fontStyle: 'bold' },
+                        alternateRowStyles: { fillColor: [248, 250, 252] },
+                        margin: { left: 14, right: 14 },
+                        theme: 'striped'
+                    });
+
+                    // TABLA DE RESUMEN: VENTAS EN MERCADOPAGO / TRANSFERENCIA
+                    let startYTransferencias = doc.previousAutoTable.finalY + 12;
+                    doc.setFontSize(10);
+                    doc.setTextColor(...colorSlateDark);
+                    doc.setFont("helvetica", "bold");
+                    doc.text("Desglose Analítico de Ventas con MercadoPago / Transferencia", 14, startYTransferencias);
+
+                    const ventasTransferencia = ventas.filter(v => v.pago !== 'Efectivo');
+                    const arrayVentasTransferencia = ventasTransferencia.map(v => [
+                        v.fecha,
+                        v.productoNombre + (v.descuento > 0 ? ` [Desc: -$${v.descuento.toFixed(2)}]` : ''),
+                        `${v.cantidad} u`,
+                        `$${(v.precioUnitario || 0).toFixed(2)}`,
+                        `$${v.total.toFixed(2)}`
+                    ]);
+
+                    doc.autoTable({
+                        startY: startYTransferencias + 4,
+                        head: [['Fecha y Hora', 'Producto / Descuentos', 'Cantidad', 'Precio Unit.', 'Total']],
+                        body: arrayVentasTransferencia.length > 0 ? arrayVentasTransferencia : [['-', 'No se registran transacciones por transferencia', '-', '-', '-']],
+                        headStyles: { fillColor: [59, 130, 246], textColor: [255, 255, 255], fontStyle: 'bold' },
+                        alternateRowStyles: { fillColor: [248, 250, 252] },
+                        margin: { left: 14, right: 14 },
+                        theme: 'striped'
+                    });
+
+
+                    // =========================================================
+                    // HOJA 3: SECCIÓN 2 - INVENTARIO DE PRODUCTOS (CON STOCK DISPONIBLE)
+                    // =========================================================
+                    doc.addPage();
+                    dibujarCabeceraDeHoja("2. Inventario de Productos y Stock Disponible");
+
+                    doc.setFontSize(9);
+                    doc.setTextColor(100, 116, 139);
+                    doc.setFont("helvetica", "italic");
+                    doc.text("Auditoría de existencias físicas disponibles para comercialización (Stock > 0).", 14, 33);
+
+                    // Filtrar productos con existencias superiores a cero
+                    const productosConStock = productos.filter(p => p.stock > 0);
+                    const arrayInventario = productosConStock.map(p => {
+                        let estado = "Óptimo";
+                        if (p.stock <= 5) estado = "Stock Crítico";
+                        return [p.nombre, `$${p.precio.toFixed(2)}`, `${p.stock} unidades`, estado];
+                    });
+
+                    doc.autoTable({
+                        startY: 37,
+                        head: [['Nombre del Producto', 'Precio de Lista', 'Cantidad Disponible', 'Estado de Existencias']],
+                        body: arrayInventario.length > 0 ? arrayInventario : [['-', 'No existen productos con stock disponible en el inventario', '-', '-']],
+                        headStyles: { fillColor: colorSlateDark, textColor: [255, 255, 255], fontStyle: 'bold' },
+                        alternateRowStyles: { fillColor: [248, 250, 252] },
+                        margin: { left: 14, right: 14 },
+                        theme: 'striped'
+                    });
+
+
+                    // =========================================================
+                    // HOJA 4: SECCIÓN 3 - DESGLOSE DETALLADO DE VENTAS
+                    // =========================================================
+                    doc.addPage();
+                    dibujarCabeceraDeHoja("3. Desglose Detallado de Ventas");
+
+                    const arrayHistorialVentas = ventas.map(v => {
+                        const tagDescuento = v.descuento > 0 ? ` [Desc: -$${v.descuento.toFixed(2)}]` : '';
+                        return [
+                            v.fecha, 
+                            `${v.productoNombre}${tagDescuento}`, 
+                            `${v.cantidad} u`, 
+                            v.pago, 
+                            `$${v.total.toFixed(2)}`
+                        ];
+                    });
+
+                    doc.autoTable({
+                        startY: 32,
+                        head: [['Fecha/Hora', 'Producto / Descuentos Aplicados', 'Unidades', 'Forma de Pago', 'Total Cobrado']],
+                        body: arrayHistorialVentas.length > 0 ? arrayHistorialVentas : [['-', 'No se registran transacciones en el sistema', '-', '-', '-']],
+                        headStyles: { fillColor: [51, 65, 85], textColor: [255, 255, 255], fontStyle: 'bold' },
+                        alternateRowStyles: { fillColor: [248, 250, 252] },
+                        margin: { left: 14, right: 14 },
+                        theme: 'striped'
+                    });
+
+
+                    // =========================================================
+                    // HOJA 5: SECCIÓN 4 - IMPACTO DE PROMOCIONES APLICADAS
+                    // =========================================================
+                    doc.addPage();
+                    dibujarCabeceraDeHoja("4. Impacto de Promociones Aplicadas");
+
+                    // Estadísticas agregadas de promociones sobre las ventas
+                    let estadisticasPromo = {};
+                    ventas.forEach(v => {
+                        if (v.descuento > 0) {
+                            const name = v.promoNombre || 'Descuento Directo';
+                            if (!estadisticasPromo[name]) {
+                                estadisticasPromo[name] = {
+                                    cantVentas: 0,
+                                    ahorroTotal: 0,
+                                    productosBeneficiados: new Set()
+                                };
+                            }
+                            estadisticasPromo[name].cantVentas += v.cantidad;
+                            estadisticasPromo[name].ahorroTotal += v.descuento;
+                            estadisticasPromo[name].productosBeneficiados.add(v.productoNombre);
+                        }
+                    });
+
+                    const arrayImpactoPromociones = Object.entries(estadisticasPromo).map(([name, stat]) => {
+                        return [
+                            name,
+                            `${stat.cantVentas} ítems`,
+                            `$${stat.ahorroTotal.toFixed(2)}`,
+                            Array.from(stat.productosBeneficiados).join(', ')
+                        ];
+                    });
+
+                    doc.autoTable({
+                        startY: 32,
+                        head: [['Nombre Promoción', 'Volumen de Artículos', 'Ahorro Otorgado', 'Productos Beneficiados']],
+                        body: arrayImpactoPromociones.length > 0 ? arrayImpactoPromociones : [['No se aplicaron promociones ni descuentos en esta sesión', '-', '-', '-']],
+                        headStyles: { fillColor: colorAmber, textColor: [255, 255, 255], fontStyle: 'bold' },
+                        alternateRowStyles: { fillColor: [248, 250, 252] },
+                        margin: { left: 14, right: 14 },
+                        theme: 'striped'
+                    });
+
+
+                    // =========================================================
+                    // CÓMPUTO Y NUMERACIÓN DE PÁGINAS (En esquina inferior derecha)
+                    // =========================================================
+                    const totalHojas = doc.internal.getNumberOfPages();
+                    for (let i = 1; i <= totalHojas; i++) {
+                        doc.setPage(i);
+                        // Excluimos la carátula de llevar número de página
+                        if (i > 1) {
+                            doc.setFont("helvetica", "normal");
+                            doc.setFontSize(8.5);
+                            doc.setTextColor(148, 163, 184); // Color muted
+                            doc.text(`Página ${i} de ${totalHojas}`, 196, 286, { align: "right" });
+                        }
+                    }
+
+                    // Guardado final del PDF
+                    doc.save(`Reporte_Caja_FLISOL_CABA_${new Date().toISOString().slice(0, 10)}.pdf`);
+                    mostrarMensaje('¡PDF Exportado!', 'El reporte financiero completo ha sido compilado y guardado.', 'exito');
+
+                } catch (error) {
+                    console.error("Fallo durante el compilado del PDF:", error);
+                    mostrarMensaje('Error de PDF', 'Hubo un inconveniente al construir las planillas a PDF.', 'error');
+                }
+            });
+        }
+
+        // Iniciar Renderizado Inicial
+        window.onload = function() {
+            render();
+        }
+    </script>
+</body>
+</html>
